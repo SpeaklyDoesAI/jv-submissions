@@ -30,8 +30,7 @@
         Repairs: $30,000<br>
         $300,000 − $30,000 = $270,000<br>
         $270,000 × 0.75 = $202,500<br>
-        $202,500 − $7,500 = MAO $195,000<br>
-        Highest asking price that passes: about $216,600
+        $202,500 − $7,500 = MAO $195,000
       </div>
 
       <p><strong>Deal types we accept:</strong> Assignment, Flip</p>
@@ -306,10 +305,10 @@
       box.append(el('p', null, `Your numbers for ${r.street_address}:`));
       const dl = el('dl', 'numbers');
       [['ARV', r.arv], ['Repairs', r.estimated_repairs], ['MAO', r.mao],
-       ['Highest asking price that passes', r.max_price], ['Your asking price', r.asking_price]]
+       ['Your asking price', r.asking_price]]
         .forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, fmtMoney(v))));
       box.append(dl);
-      box.append(el('p', 'too-high', `You're ${fmtMoney(r.over_by)} too high. Get the seller under ${fmtMoney(r.max_price)} and submit it again.`));
+      box.append(el('p', 'too-high', `You're ${fmtMoney(r.over_by)} too high. Get the seller to ${fmtMoney(r.mao)} or less and submit it again.`));
       const again = el('button', 'primary', 'Submit another deal');
       again.type = 'button';
       again.addEventListener('click', () => {
