@@ -43,8 +43,6 @@
     <section id="resultBox" class="card result" hidden></section>
 
     <form id="jvForm" novalidate>
-      <div id="formError" class="error" role="alert" hidden></div>
-
       <section class="card">
         <h2>Your Info</h2>
         <div class="grid">
@@ -62,10 +60,31 @@
           <div><label for="seller_last_name">Seller Last Name <span class="req">*</span></label><input id="seller_last_name" name="seller_last_name" required></div>
           <div><label for="seller_phone">Seller Phone <span class="req">*</span><span class="note">Do not submit multiple forms with the same phone number</span></label><input id="seller_phone" name="seller_phone" type="tel" required></div>
           <div><label for="seller_email">Seller Email<span class="note">&nbsp;</span></label><input id="seller_email" name="seller_email" type="email"></div>
-          <div class="full"><label for="street_address">Street Address <span class="req">*</span></label><input id="street_address" name="street_address" autocomplete="off" required></div>
-          <div><label for="city">City</label><input id="city" name="city"></div>
-          <div><label for="state">State</label><input id="state" name="state"></div>
-          <div><label for="postal_code">Postal Code</label><input id="postal_code" name="postal_code" inputmode="numeric"></div>
+          <div class="full" id="addressSearch" hidden>
+            <label id="addressSearchLabel">Search address</label>
+            <div id="addressSearchSlot"></div>
+            <div class="hint">Pick an address to fill in the fields below. You can still edit them.</div>
+          </div>
+          <div class="full"><label for="street_address">Street Address <span class="req">*</span></label><input id="street_address" name="street_address" autocomplete="off" placeholder="123 Main St" required></div>
+          <div><label for="city">City <span class="req">*</span></label><input id="city" name="city" required></div>
+          <div>
+            <label for="state">State <span class="req">*</span></label>
+            <select id="state" name="state" required>
+              <option value="">Select…</option>
+              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
+              <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
+              <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
+              <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
+              <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+              <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
+              <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
+              <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
+              <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+              <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option>
+              <option>WY</option>
+            </select>
+          </div>
+          <div><label for="postal_code">Postal Code <span class="req">*</span></label><input id="postal_code" name="postal_code" inputmode="numeric" maxlength="5" required></div>
         </div>
       </section>
 
@@ -88,11 +107,13 @@
         </div>
       </section>
 
+      <div id="formError" class="error" role="alert" hidden></div>
       <button type="submit" class="primary" id="submitBtn">Submit JV Deal</button>
     </form>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@googlemaps/js-api-loader@1.16.8/dist/index.min.js"></script>
   <script src="config.js"></script>
   <script>
     const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
@@ -118,6 +139,154 @@
       errBox.hidden = false;
       errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+
+    // ---- Field validation (mirrors the rules enforced in submit_jv) ----
+    const val = name => form.elements[name].value.trim();
+    const letterCount = s => s.replace(/[^A-Za-z]/g, '').length;
+    const normPhone = s => {
+      let d = s.replace(/\D/g, '');
+      if (d.length === 11 && d[0] === '1') d = d.slice(1);
+      return d;
+    };
+    const phoneOk = s => /^[2-9]\d{9}$/.test(normPhone(s));
+    const emailOk = s => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(s);
+    const moneyText = s => s.replace(/[$,\s]/g, '');
+    const moneyOk = s => /^\d+(\.\d{1,2})?$/.test(moneyText(s));
+
+    const RULES = {
+      partner_first_name: v => letterCount(v) >= 2 || 'First name must have at least 2 letters.',
+      partner_last_name: v => letterCount(v) >= 2 || 'Last name must have at least 2 letters.',
+      seller_first_name: v => letterCount(v) >= 2 || 'Seller first name must have at least 2 letters.',
+      seller_last_name: v => letterCount(v) >= 2 || 'Seller last name must have at least 2 letters.',
+      partner_phone: v => phoneOk(v) || 'Enter a valid 10-digit US phone number.',
+      seller_phone: v => {
+        if (!phoneOk(v)) return 'Enter a valid 10-digit US phone number.';
+        if (phoneOk(val('partner_phone')) && normPhone(v) === normPhone(val('partner_phone'))) return "Seller phone can't be the same as your phone.";
+        return true;
+      },
+      partner_email: v => !v || emailOk(v) || 'Enter a valid email address.',
+      seller_email: v => !v || emailOk(v) || 'Enter a valid email address.',
+      street_address: v => /^\d+[A-Za-z]?(-\d+)?\s+\S.*[A-Za-z]/.test(v) || 'Start with the house number, then the street name (e.g. 123 Main St).',
+      postal_code: v => /^\d{5}$/.test(v) || 'Postal code must be 5 digits.',
+      arv: v => (moneyOk(v) && Number(moneyText(v)) > 0) || 'Enter a dollar amount greater than $0.',
+      asking_price: v => {
+        if (!moneyOk(v) || Number(moneyText(v)) <= 0) return 'Enter a dollar amount greater than $0.';
+        if (moneyOk(val('arv')) && Number(moneyText(v)) >= Number(moneyText(val('arv')))) return 'Asking price must be less than the ARV.';
+        return true;
+      },
+      estimated_repairs: v => {
+        if (!moneyOk(v)) return 'Enter a dollar amount (0 or more).';
+        if (moneyOk(val('arv')) && Number(moneyText(v)) >= Number(moneyText(val('arv')))) return 'Estimated repairs must be less than the ARV.';
+        return true;
+      },
+    };
+    // Fields whose check depends on another field's value.
+    const DEPENDENTS = { partner_phone: ['seller_phone'], arv: ['asking_price', 'estimated_repairs'] };
+
+    function fieldMessage(name) {
+      const input = form.elements[name];
+      const v = val(name);
+      if (!v) return input.required ? 'This field is required.' : '';
+      const r = RULES[name] ? RULES[name](v) : true;
+      return r === true ? '' : r;
+    }
+
+    function setFieldError(name, msg) {
+      const input = form.elements[name];
+      const box = input.closest('.grid > div');
+      let err = box.querySelector('.field-error');
+      if (!err) {
+        err = el('div', 'field-error');
+        err.id = name + '_error';
+        box.append(err);
+      }
+      err.textContent = msg;
+      err.hidden = !msg;
+      input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+      if (msg) input.setAttribute('aria-describedby', err.id); else input.removeAttribute('aria-describedby');
+    }
+
+    const validateField = name => {
+      const msg = fieldMessage(name);
+      setFieldError(name, msg);
+      return !msg;
+    };
+
+    function clearFieldErrors() {
+      form.querySelectorAll('.field-error').forEach(e => { e.textContent = ''; e.hidden = true; });
+      form.querySelectorAll('[aria-invalid]').forEach(i => i.setAttribute('aria-invalid', 'false'));
+    }
+
+    // Check a field when the user leaves it; clear its error as soon as it's fixed.
+    for (const name of FIELDS) {
+      const input = form.elements[name];
+      const touched = () => input.dataset.touched === '1';
+      input.addEventListener('blur', () => {
+        if (!val(name) && !touched()) return;
+        input.dataset.touched = '1';
+        validateField(name);
+      });
+      input.addEventListener('change', () => { input.dataset.touched = '1'; validateField(name); });
+      input.addEventListener('input', () => {
+        if (input.getAttribute('aria-invalid') === 'true') validateField(name);
+        for (const d of DEPENDENTS[name] || []) if (val(d)) validateField(d);
+      });
+    }
+
+    // ---- Google Place Autocomplete (Places API New) ----
+    let PlaceAutocompleteElement = null;
+
+    function fillAddress(place) {
+      const comps = place.addressComponents || [];
+      const get = (type, short) => {
+        const c = comps.find(c => c.types.includes(type));
+        return c ? (short ? c.shortText : c.longText) : '';
+      };
+      const street = [get('street_number'), get('route', true)].filter(Boolean).join(' ');
+      const city = get('locality') || get('sublocality_level_1') || get('postal_town') || get('neighborhood');
+      const state = get('administrative_area_level_1', true);
+      const zip = get('postal_code');
+
+      form.elements.street_address.value = street;
+      form.elements.city.value = city;
+      form.elements.state.value = [...form.elements.state.options].some(o => o.value === state) ? state : '';
+      form.elements.postal_code.value = zip;
+      for (const f of ['street_address', 'city', 'state', 'postal_code']) {
+        form.elements[f].dataset.touched = '1';
+        validateField(f);
+      }
+    }
+
+    function mountAutocomplete() {
+      if (!PlaceAutocompleteElement) return;
+      const pac = new PlaceAutocompleteElement({ includedRegionCodes: ['us'] });
+      pac.setAttribute('aria-labelledby', 'addressSearchLabel');
+      pac.setAttribute('placeholder', 'Start typing the property address');
+      const onPlace = async place => {
+        try {
+          await place.fetchFields({ fields: ['addressComponents'] });
+          fillAddress(place);
+        } catch (err) {
+          console.error('Place details failed', err);
+        }
+      };
+      // Current event name, plus the older one for API versions that still use it.
+      pac.addEventListener('gmp-select', e => e.placePrediction && onPlace(e.placePrediction.toPlace()));
+      pac.addEventListener('gmp-placeselect', e => e.place && onPlace(e.place));
+      document.getElementById('addressSearchSlot').replaceChildren(pac);
+    }
+
+    (async () => {
+      try {
+        const loader = new google.maps.plugins.loader.Loader({ apiKey: window.GOOGLE_MAPS_KEY, version: 'weekly' });
+        ({ PlaceAutocompleteElement } = await loader.importLibrary('places'));
+        mountAutocomplete();
+        document.getElementById('addressSearch').hidden = false;
+      } catch (err) {
+        // The form still works without the picker; addresses can be typed in.
+        console.error('Address search unavailable', err);
+      }
+    })();
 
     const el = (tag, cls, text) => {
       const n = document.createElement(tag);
@@ -148,6 +317,9 @@
       again.type = 'button';
       again.addEventListener('click', () => {
         form.reset();
+        clearFieldErrors();
+        form.querySelectorAll('[data-touched]').forEach(i => delete i.dataset.touched);
+        mountAutocomplete();
         errBox.hidden = true;
         resultBox.hidden = true;
         form.hidden = false;
@@ -161,30 +333,20 @@
       e.preventDefault();
       errBox.hidden = true;
 
-      const missing = [...form.querySelectorAll('[required]')].filter(el => !el.value.trim());
-      if (missing.length) {
-        const label = form.querySelector(`label[for="${missing[0].id}"]`);
-        showError('Please fill in all required fields' + (label ? ` (missing: ${label.firstChild.textContent.trim()})` : '') + '.');
-        missing[0].focus();
+      const invalid = FIELDS.filter(f => !validateField(f));
+      if (invalid.length) {
+        const first = form.elements[invalid[0]];
+        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        first.focus({ preventScroll: true });
         return;
       }
-      const badEmail = [...form.querySelectorAll('input[type=email]')].find(el => el.value && !el.checkValidity());
-      if (badEmail) { showError('Please enter a valid email address.'); badEmail.focus(); return; }
 
       const p = {};
       for (const f of FIELDS) {
-        const v = form.elements[f].value.trim();
+        const v = val(f);
         p[f] = v === '' ? null : v;
       }
-      for (const f of MONEY) {
-        const n = toNumber(form.elements[f].value);
-        if (!Number.isFinite(n)) {
-          showError('Please enter dollar amounts as numbers only.');
-          form.elements[f].focus();
-          return;
-        }
-        p[f] = n;
-      }
+      for (const f of MONEY) p[f] = toNumber(form.elements[f].value);
 
       btn.disabled = true;
       btn.textContent = 'Submitting…';

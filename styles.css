@@ -68,6 +68,12 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
 textarea { min-height: 110px; resize: vertical; }
 
+input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--bad); }
+.field-error { color: var(--bad); font-size: .85rem; margin-top: 4px; }
+
+gmp-place-autocomplete { display: block; width: 100%; color-scheme: light; }
+#addressSearch .hint { color: var(--muted); font-size: .82rem; margin-top: 4px; }
+
 .money { position: relative; }
 .money span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
 .money input { padding-left: 26px; }
