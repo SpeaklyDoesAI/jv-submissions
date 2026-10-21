@@ -15,9 +15,7 @@
 
     <section class="card criteria">
       <h2>JV Lead Submission Criteria</h2>
-      <p class="formula">MAO = (ARV − Estimated Repairs) × 0.73 − $20,000</p>
-      <p>A deal passes when the asking price is at or below the MAO.</p>
-    </section>
+      <p class="formula">MAO = (ARV − Estimated Repairs) × 0.73 − $20,000</p>    </section>
 
     <section id="resultBox" class="card result" hidden></section>
 
@@ -144,7 +142,7 @@
         const r = Array.isArray(data) ? data[0] : data;
         if (!r || !r.result) throw new Error('Unexpected response from server.');
         if (r.result === 'denied') {
-          showResult('denied', `Hey ${r.partner_first_name}! Unfortunately your JV Deal at ${r.street_address} did not pass our underwriting test. You will need to lock this deal up below ${fmtMoney(r.mao)} for us to look at it.`);
+          showResult('denied', `Hey ${r.partner_first_name}! Unfortunately your JV Deal at ${r.street_address} did not pass our underwriting test. You will need to lock this deal up below ${fmtMoney(r.max_price)} for us to look at it.`);
         } else if (r.result === 'approved') {
           showResult('approved', `Thanks ${r.partner_first_name}! Your JV deal at ${r.street_address} passed our underwriting and has been sent to the team. We'll be in touch.`);
         } else {
