@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JV Lead Submission | Creative Owners Club</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="brand">
+      <h1>Creative Owners Club</h1>
+      <p>JV Lead Submission</p>
+    </header>
+
+    <section class="card criteria">
+      <h2>JV Lead Submission Criteria</h2>
+      <p class="formula">MAO = (ARV − Estimated Repairs) × 0.73 − $20,000</p>
+      <p>A deal passes when the asking price is at or below the MAO.</p>
+    </section>
+
+    <section id="resultBox" class="card result" hidden></section>
+
+    <form id="jvForm" novalidate>
+      <div id="formError" class="error" role="alert" hidden></div>
+
+      <section class="card">
+        <h2>Your Info</h2>
+        <div class="grid">
+          <div><label for="partner_first_name">First Name <span class="req">*</span></label><input id="partner_first_name" name="partner_first_name" autocomplete="given-name" required></div>
+          <div><label for="partner_last_name">Last Name <span class="req">*</span></label><input id="partner_last_name" name="partner_last_name" autocomplete="family-name" required></div>
+          <div><label for="partner_phone">Phone <span class="req">*</span></label><input id="partner_phone" name="partner_phone" type="tel" autocomplete="tel" required></div>
+          <div><label for="partner_email">Email</label><input id="partner_email" name="partner_email" type="email" autocomplete="email"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Seller Info</h2>
+        <div class="grid">
+          <div><label for="seller_first_name">Seller First Name <span class="req">*</span></label><input id="seller_first_name" name="seller_first_name" required></div>
+          <div><label for="seller_last_name">Seller Last Name <span class="req">*</span></label><input id="seller_last_name" name="seller_last_name" required></div>
+          <div><label for="seller_phone">Seller Phone <span class="req">*</span><span class="note">Do not submit multiple forms with the same phone number</span></label><input id="seller_phone" name="seller_phone" type="tel" required></div>
+          <div><label for="seller_email">Seller Email<span class="note">&nbsp;</span></label><input id="seller_email" name="seller_email" type="email"></div>
+          <div class="full"><label for="street_address">Street Address <span class="req">*</span></label><input id="street_address" name="street_address" autocomplete="off" required></div>
+          <div><label for="city">City</label><input id="city" name="city"></div>
+          <div><label for="state">State</label><input id="state" name="state"></div>
+          <div><label for="postal_code">Postal Code</label><input id="postal_code" name="postal_code" inputmode="numeric"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Purchase Info</h2>
+        <div class="grid">
+          <div><label for="asking_price">Asking Price <span class="req">*</span></label><div class="money"><span>$</span><input id="asking_price" name="asking_price" inputmode="decimal" data-money required></div></div>
+          <div><label for="arv">ARV <span class="req">*</span></label><div class="money"><span>$</span><input id="arv" name="arv" inputmode="decimal" data-money required></div></div>
+          <div><label for="property_condition">Property Condition <span class="req">*</span></label><input id="property_condition" name="property_condition" required></div>
+          <div><label for="estimated_repairs">Estimated Repairs <span class="req">*</span></label><div class="money"><span>$</span><input id="estimated_repairs" name="estimated_repairs" inputmode="decimal" data-money required></div></div>
+          <div class="full">
+            <label for="deal_type">Type of Deal <span class="req">*</span></label>
+            <select id="deal_type" name="deal_type" required>
+              <option value="">Select…</option>
+              <option>Assignment</option>
+              <option>Novation</option>
+              <option>Flip</option>
+            </select>
+          </div>
+          <div class="full"><label for="additional_info">Additional Info</label><textarea id="additional_info" name="additional_info" placeholder="closing timeframe, why are they selling, is there a mortgage, anything else important?"></textarea></div>
+        </div>
+      </section>
+
+      <button type="submit" class="primary" id="submitBtn">Submit JV Deal</button>
+    </form>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script>
+    const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
+    const form = document.getElementById('jvForm');
+    const errBox = document.getElementById('formError');
+    const resultBox = document.getElementById('resultBox');
+    const btn = document.getElementById('submitBtn');
+
+    const FIELDS = ['partner_first_name','partner_last_name','partner_phone','partner_email',
+      'seller_first_name','seller_last_name','seller_phone','seller_email',
+      'street_address','city','state','postal_code',
+      'asking_price','arv','property_condition','estimated_repairs','deal_type','additional_info'];
+    const MONEY = ['asking_price','arv','estimated_repairs'];
+
+    const toNumber = s => {
+      const cleaned = String(s).replace(/[$,\s]/g, '');
+      return cleaned === '' ? NaN : Number(cleaned);
+    };
+    const fmtMoney = n => '$' + Math.round(Number(n)).toLocaleString('en-US');
+
+    function showError(msg) {
+      errBox.textContent = msg;
+      errBox.hidden = false;
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function showResult(kind, text) {
+      resultBox.className = 'card result ' + kind;
+      resultBox.textContent = text;
+      resultBox.hidden = false;
+      form.hidden = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.hidden = true;
+
+      const missing = [...form.querySelectorAll('[required]')].filter(el => !el.value.trim());
+      if (missing.length) {
+        const label = form.querySelector(`label[for="${missing[0].id}"]`);
+        showError('Please fill in all required fields' + (label ? ` (missing: ${label.firstChild.textContent.trim()})` : '') + '.');
+        missing[0].focus();
+        return;
+      }
+      const badEmail = [...form.querySelectorAll('input[type=email]')].find(el => el.value && !el.checkValidity());
+      if (badEmail) { showError('Please enter a valid email address.'); badEmail.focus(); return; }
+
+      const p = {};
+      for (const f of FIELDS) {
+        const v = form.elements[f].value.trim();
+        p[f] = v === '' ? null : v;
+      }
+      for (const f of MONEY) {
+        const n = toNumber(form.elements[f].value);
+        if (!Number.isFinite(n)) {
+          showError('Please enter dollar amounts as numbers only.');
+          form.elements[f].focus();
+          return;
+        }
+        p[f] = n;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Submitting…';
+      try {
+        const { data, error } = await sb.rpc('submit_jv', { p });
+        if (error) throw error;
+        const r = Array.isArray(data) ? data[0] : data;
+        if (!r || !r.result) throw new Error('Unexpected response from server.');
+        if (r.result === 'denied') {
+          showResult('denied', `Hey ${r.partner_first_name}! Unfortunately your JV Deal at ${r.street_address} did not pass our underwriting test. You will need to lock this deal up below ${fmtMoney(r.mao)} for us to look at it.`);
+        } else if (r.result === 'approved') {
+          showResult('approved', `Thanks ${r.partner_first_name}! Your JV deal at ${r.street_address} passed our underwriting and has been sent to the team. We'll be in touch.`);
+        } else {
+          throw new Error('Unexpected result: ' + r.result);
+        }
+      } catch (err) {
+        showError(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Submit JV Deal';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>JV Submissions Admin | Creative Owners Club</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap wide">
+    <header class="brand">
+      <h1>Creative Owners Club</h1>
+      <p>JV Submissions Admin</p>
+    </header>
+
+    <section id="loginView" class="card login" hidden>
+      <h2>Admin Login</h2>
+      <form id="loginForm">
+        <div id="loginError" class="error" role="alert" hidden></div>
+        <div class="field"><label for="email">Email</label><input id="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required></div>
+        <button type="submit" class="primary" id="loginBtn">Sign In</button>
+      </form>
+    </section>
+
+    <section id="appView" hidden>
+      <div class="toolbar">
+        <div class="filters" id="filters">
+          <button data-f="all" class="active">All</button>
+          <button data-f="approved">Approved</button>
+          <button data-f="denied">Denied</button>
+        </div>
+        <div><span class="sub" id="who"></span> <button id="signOut">Sign out</button></div>
+      </div>
+      <div id="listError" class="error" role="alert" hidden></div>
+      <div id="noAccess" class="card" hidden>This account doesn't have admin access.</div>
+      <div class="table-wrap" id="tableWrap" hidden>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Result</th><th>Deal Type</th><th>Partner</th><th>Seller</th><th>Address</th>
+              <th class="num">Asking</th><th class="num">ARV</th><th class="num">Repairs</th><th class="num">MAO</th><th class="num">Alpha</th><th class="num">Opp. Value</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="detail">
+    <div class="head"><h3>Submission</h3><button id="closeDetail" aria-label="Close">✕</button></div>
+    <dl id="detailList"></dl>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script>
+    const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_KEY);
+    const $ = id => document.getElementById(id);
+    let all = [];
+    let filter = 'all';
+
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    const money = n => n == null ? '' : '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const date = d => new Date(d).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const badge = r => `<span class="badge ${esc(r)}">${r === 'approved' ? 'Approved' : r === 'denied' ? 'Denied' : esc(r)}</span>`;
+    const address = r => [r.street_address, r.city, r.state, r.postal_code].filter(Boolean).join(', ');
+
+    function showLogin() { $('loginView').hidden = false; $('appView').hidden = true; }
+
+    async function showApp(session) {
+      $('loginView').hidden = true;
+      $('appView').hidden = false;
+      $('who').textContent = session.user.email;
+      $('listError').hidden = true;
+      const { data, error } = await sb.from('jv_submissions').select('*').order('created_at', { ascending: false });
+      if (error) {
+        $('listError').textContent = error.message;
+        $('listError').hidden = false;
+        return;
+      }
+      all = data || [];
+      $('noAccess').hidden = all.length > 0;
+      $('tableWrap').hidden = all.length === 0;
+      render();
+    }
+
+    function render() {
+      const rows = filter === 'all' ? all : all.filter(r => r.result === filter);
+      $('rows').innerHTML = rows.map(r => `
+        <tr data-id="${r.id}">
+          <td>${esc(date(r.created_at))}</td>
+          <td>${badge(r.result)}</td>
+          <td>${esc(r.deal_type)}</td>
+          <td>${esc(r.partner_first_name)} ${esc(r.partner_last_name)}<br><span class="sub">${esc(r.partner_phone)}</span></td>
+          <td>${esc(r.seller_first_name)} ${esc(r.seller_last_name)}<br><span class="sub">${esc(r.seller_phone)}</span></td>
+          <td>${esc(address(r))}</td>
+          <td class="num">${money(r.asking_price)}</td>
+          <td class="num">${money(r.arv)}</td>
+          <td class="num">${money(r.estimated_repairs)}</td>
+          <td class="num">${money(r.mao)}</td>
+          <td class="num">${money(r.alpha)}</td>
+          <td class="num">${money(r.opportunity_value)}</td>
+        </tr>`).join('') || '<tr><td colspan="12" class="sub">No submissions match this filter.</td></tr>';
+    }
+
+    function openDetail(r) {
+      const items = [
+        ['Submitted', date(r.created_at)],
+        ['Result', r.result === 'approved' ? 'Approved' : 'Denied'],
+        ['Deal Type', r.deal_type],
+        ['Partner', `${r.partner_first_name} ${r.partner_last_name}`],
+        ['Partner Phone', r.partner_phone],
+        ['Partner Email', r.partner_email],
+        ['Seller', `${r.seller_first_name} ${r.seller_last_name}`],
+        ['Seller Phone', r.seller_phone],
+        ['Seller Email', r.seller_email],
+        ['Street Address', r.street_address],
+        ['City', r.city],
+        ['State', r.state],
+        ['Postal Code', r.postal_code],
+        ['Asking Price', money(r.asking_price)],
+        ['ARV', money(r.arv)],
+        ['Estimated Repairs', money(r.estimated_repairs)],
+        ['Property Condition', r.property_condition],
+        ['MAO', money(r.mao)],
+        ['Alpha', money(r.alpha)],
+        ['Opportunity Value', money(r.opportunity_value)],
+        ['Additional Info', r.additional_info],
+        ['Team Emailed', r.team_emailed_at ? date(r.team_emailed_at) : ''],
+      ];
+      $('detailList').innerHTML = items.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v) || '<span class="sub">—</span>'}</dd>`).join('');
+      $('detail').showModal();
+    }
+
+    $('rows').addEventListener('click', e => {
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const r = all.find(x => String(x.id) === tr.dataset.id);
+      if (r) openDetail(r);
+    });
+    $('closeDetail').addEventListener('click', () => $('detail').close());
+    $('detail').addEventListener('click', e => { if (e.target === $('detail')) $('detail').close(); });
+
+    $('filters').addEventListener('click', e => {
+      const b = e.target.closest('button[data-f]');
+      if (!b) return;
+      filter = b.dataset.f;
+      document.querySelectorAll('#filters button').forEach(x => x.classList.toggle('active', x === b));
+      render();
+    });
+
+    $('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      $('loginError').hidden = true;
+      $('loginBtn').disabled = true;
+      const { data, error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+      $('loginBtn').disabled = false;
+      if (error) { $('loginError').textContent = error.message; $('loginError').hidden = false; return; }
+      $('password').value = '';
+      showApp(data.session);
+    });
+
+    $('signOut').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      all = [];
+      $('rows').innerHTML = '';
+      showLogin();
+    });
+
+    sb.auth.getSession().then(({ data }) => data.session ? showApp(data.session) : showLogin());
+  </script>
+</body>
+</html>
