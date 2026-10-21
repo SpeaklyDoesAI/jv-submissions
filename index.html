@@ -119,12 +119,42 @@
       errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function showResult(kind, text) {
+    const el = (tag, cls, text) => {
+      const n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    };
+
+    function showResult(kind, content) {
       resultBox.className = 'card result ' + kind;
-      resultBox.textContent = text;
+      resultBox.replaceChildren(content);
       resultBox.hidden = false;
       form.hidden = true;
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function deniedView(r) {
+      const box = el('div');
+      box.append(el('p', 'lead', `Hey ${r.partner_first_name}, this deal didn't pass.`));
+      box.append(el('p', null, `Your numbers for ${r.street_address}:`));
+      const dl = el('dl', 'numbers');
+      [['ARV', r.arv], ['Repairs', r.estimated_repairs], ['MAO', r.mao],
+       ['Highest asking price that passes', r.max_price], ['Your asking price', r.asking_price]]
+        .forEach(([k, v]) => dl.append(el('dt', null, k), el('dd', null, fmtMoney(v))));
+      box.append(dl);
+      box.append(el('p', 'too-high', `You're ${fmtMoney(r.over_by)} too high. Get the seller under ${fmtMoney(r.max_price)} and submit it again.`));
+      const again = el('button', 'primary', 'Submit another deal');
+      again.type = 'button';
+      again.addEventListener('click', () => {
+        form.reset();
+        errBox.hidden = true;
+        resultBox.hidden = true;
+        form.hidden = false;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      box.append(again);
+      return box;
     }
 
     form.addEventListener('submit', async (e) => {
@@ -164,9 +194,9 @@
         const r = Array.isArray(data) ? data[0] : data;
         if (!r || !r.result) throw new Error('Unexpected response from server.');
         if (r.result === 'denied') {
-          showResult('denied', `Hey ${r.partner_first_name}! Unfortunately your JV Deal at ${r.street_address} did not pass our underwriting test. You will need to lock this deal up below ${fmtMoney(r.max_price)} for us to look at it.`);
+          showResult('denied', deniedView(r));
         } else if (r.result === 'approved') {
-          showResult('approved', `Thanks ${r.partner_first_name}! Your JV deal at ${r.street_address} passed our underwriting and has been sent to the team. We'll be in touch.`);
+          showResult('approved', el('span', null, `Thanks ${r.partner_first_name}! Your JV deal at ${r.street_address} passed our underwriting and has been sent to the team. We'll be in touch.`));
         } else {
           throw new Error('Unexpected result: ' + r.result);
         }
