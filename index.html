@@ -15,7 +15,30 @@
 
     <section class="card criteria">
       <h2>JV Lead Submission Criteria</h2>
-      <p class="formula">MAO = (ARV − Estimated Repairs) × 0.73 − $20,000</p>    </section>
+
+      <h3>Step 1: Find your MAO</h3>
+      <ol>
+        <li>Take the ARV.</li>
+        <li>Subtract the repair cost.</li>
+        <li>Multiply by 0.73.</li>
+        <li>Subtract $20,000.</li>
+      </ol>
+
+      <h3>Step 2: Check your price</h3>
+      <p>Your asking price can be up to about 10% more than your MAO. If it's higher than that, the deal won't pass.</p>
+
+      <h3>Example</h3>
+      <div class="formula">
+        ARV: $300,000<br>
+        Repairs: $30,000<br>
+        $300,000 − $30,000 = $270,000<br>
+        $270,000 × 0.73 = $197,100<br>
+        $197,100 − $20,000 = MAO $177,100<br>
+        Highest asking price that passes: about $196,700
+      </div>
+
+      <p><strong>Deal types we accept:</strong> Assignment, Flip</p>
+    </section>
 
     <section id="resultBox" class="card result" hidden></section>
 
@@ -58,7 +81,6 @@
             <select id="deal_type" name="deal_type" required>
               <option value="">Select…</option>
               <option>Assignment</option>
-              <option>Novation</option>
               <option>Flip</option>
             </select>
           </div>

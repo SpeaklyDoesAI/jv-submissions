@@ -64,6 +64,7 @@
 
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
     const money = n => n == null ? '' : '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const ratio = n => n == null ? '' : Number(n).toFixed(2);
     const date = d => new Date(d).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
     const badge = r => `<span class="badge ${esc(r)}">${r === 'approved' ? 'Approved' : r === 'denied' ? 'Denied' : esc(r)}</span>`;
     const address = r => [r.street_address, r.city, r.state, r.postal_code].filter(Boolean).join(', ');
@@ -101,7 +102,7 @@
           <td class="num">${money(r.arv)}</td>
           <td class="num">${money(r.estimated_repairs)}</td>
           <td class="num">${money(r.mao)}</td>
-          <td class="num">${money(r.alpha)}</td>
+          <td class="num">${ratio(r.alpha)}</td>
           <td class="num">${money(r.opportunity_value)}</td>
         </tr>`).join('') || '<tr><td colspan="12" class="sub">No submissions match this filter.</td></tr>';
     }
@@ -126,7 +127,7 @@
         ['Estimated Repairs', money(r.estimated_repairs)],
         ['Property Condition', r.property_condition],
         ['MAO', money(r.mao)],
-        ['Alpha', money(r.alpha)],
+        ['Alpha', ratio(r.alpha)],
         ['Opportunity Value', money(r.opportunity_value)],
         ['Additional Info', r.additional_info],
         ['Team Emailed', r.team_emailed_at ? date(r.team_emailed_at) : ''],
